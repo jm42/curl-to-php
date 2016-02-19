@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <meta charset="US-ASCII">
+  <title>cURL to PHP</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.1.0/styles/default.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.1.0/highlight.min.js"></script>
+  <script src="https://code.jquery.com/jquery-1.12.0.min.js"></script>
+  <script src="curl_to_php.js"></script>
+  <script>
+  $(function() {
+    var i = $('#input'), l
+    i.val(decodeURI(location.hash.substr(1)))
+    i.keyup(function() {
+      var i, o
+      i = $(this).val()
+      if (i) {
+        o = curl_to_php.transform(i)
+        if (o) {
+          o = hljs.highlight("php", o).value
+          o = o.replace(/`([^`]+)`/, '<a href="#$1">$1</a>', 'g')
+          location.hash = i
+          $('#output').html(o)
+        }
+      }
+    })
+    .trigger('keyup')
+  })
+  </script>
+ </head>
+<body>
+  <main>
+    <textarea id="input"></textarea>
+    <pre><code class="php" id="output"></code></pre>
+  </main>
+</body>
+</html>
