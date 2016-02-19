@@ -9,22 +9,22 @@
   <script src="curl_to_php.js"></script>
   <script>
   $(function() {
-    var i = $('#input'), l
-    i.val(decodeURI(location.hash.substr(1)))
-    i.keyup(function() {
-      var i, o
-      i = $(this).val()
+    $(window).on('hashchange', function() {
+      $('#input').val(decodeURI(location.hash.substr(1))).trigger('keyup')
+    })
+    $('#input').keyup(function() {
+      var i, o, t = $(this)
+      location.hash = i = t.val()
       if (i) {
         o = curl_to_php.transform(i)
         if (o) {
           o = hljs.highlight("php", o).value
           o = o.replace(/`([^`]+)`/, '<a href="#$1">$1</a>', 'g')
-          location.hash = i
           $('#output').html(o)
         }
       }
     })
-    .trigger('keyup')
+    $('#input').trigger('keyup')
   })
   </script>
  </head>
