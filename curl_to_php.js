@@ -15,8 +15,10 @@ curl_to_php.transform = function(c, w) {
       'EXAMPLES\n' +
       '       `curl echoip.com`\n' +
       '       `curl -i \'https://musicbrainz.org/ws/2/artist/?query=area:Argentina\'`\n' +
-      '       `curl -A "Googlebot/2.1 (+http://www.google.com/bot.html)" https://google.com`\n' +
-      '       `curl -i -I -H "X-First-Name: Joe" http://192.168.0.1/`\n'
+      '       `curl --http2 -A "Googlebot/2.1 (+http://www.google.com/bot.html)" https://google.com`\n' +
+      '       `curl -I -H "X-First-Name: Joe" http://192.168.0.1/`\n' +
+      '       `curl -u "john:doe" --basic --digest ldap.intranet`\n' +
+      '       `curl -L --max-redirs 3 https://goo.gl/MSOejW`\n'
     )
     return w.toString()
   }
@@ -24,27 +26,51 @@ curl_to_php.transform = function(c, w) {
     return w
       .comment("curl-to-php: try 'curl --help' for more information")
       .toString()
-  var i, h = (typeof c.T_HEADER == "string" ? [c.T_HEADER] : c.T_HEADER).map(unquote)
+  var i, h = typeof c.T_HEADER != "undefined"
+    ? (typeof c.T_HEADER == "string" ? [c.T_HEADER] : c.T_HEADER).map(unquote)
+    : []
   var f = {
-    CURLOPT_RETURNTRANSFER: false,
+    CURLOPT_RETURNTRANSFER: true,
     CURLOPT_HEADER: false,
-    CURLOPT_CONNECTTIMEOUT: 150,
     CURLOPT_HTTP_VERSION: 'CURL_HTTP_VERSION_1_1',
   }
+  if (typeof c.T_METHOD != "undefined")
+    f['CURLOPT_CUSTOMREQUEST'] = unquote(typeof c.T_METHOD == "string"
+      ? c.T_METHOD : c.T_METHOD.pop()).toUpperCase()
+  if (typeof c.T_GET != "undefined")
+    c['CURLOPT_HTTPGET'] = true
   if (typeof c.T_URL == "string")
     f['CURLOPT_URL'] = unquote(c.T_URL)
   if (typeof c.T_HTTP10 != "undefined")
-    f['CURLOPT_HTTP_VERSION'] = 'CURL_HTTP_VERSION_1_0'
+    f['CURLOPT_HTTP_VERSION'] = "CURL_HTTP_VERSION_1_0"
   if (typeof c.T_HTTP2 != "undefined")
-    f['CURLOPT_HTTP_VERSION'] = 'CURL_HTTP_VERSION_2_0'
+    f['CURLOPT_HTTP_VERSION'] = "CURL_HTTP_VERSION_2_0"
   if (typeof c.T_USER_AGENT != "undefined")
     f['CURLOPT_USERAGENT'] = unquote(c.T_USER_AGENT)
   if (typeof c.T_INCLUDE != "undefined")
     f['CURLOPT_HEADER'] = true
   if (typeof c.T_HEAD != "undefined") {
+    f['CURLOPT_CUSTOMREQUEST'] = "HEAD"
     f['CURLOPT_NOBODY'] = true
     delete f['CURLOPT_FILE']
     delete f['CURLOPT_INFILE']
+  }
+  if (typeof c.T_LOCATION != "undefined")
+    f['CURLOPT_FOLLOWLOCATION'] = true
+  if (typeof c.T_MAXREDIRS != "undefined")
+    f['CURLOPT_MAXREDIRS'] = typeof c.T_MAXREDIRS == "string"
+      ? c.T_MAXREDIRS : c.T_MAXREDIRS.pop()
+  if (typeof c.T_MAXTIME != "undefined")
+    f['CURLOPT_CONNECTTIMEOUT'] = typeof c.T_MAXTIME == "string"
+      ? c.T_MAXTIME : c.T_MAXTIME.pop()
+  if (typeof c.T_USER != "undefined") {
+    f['CURLOPT_USERPWD'] = unquote(typeof c.T_USER == "string"
+      ? c.T_USER : c.T_USER.pop())
+    if (typeof c.T_BASIC != "undefined")
+      f['CURLOPT_HTTPAUTH'] = "CURLAUTH_BASIC"
+    if (typeof c.T_DIGEST != "undefined")
+      f['CURLOPT_HTTPAUTH'] = typeof f['CURLOPT_HTTPAUTH'] == "undefined"
+        ? "CURLAUTH_DIGEST" : f['CURLOPT_HTTPAUTH'] + " | CURLAUTH_DIGEST"
   }
   w = w.curl_init().curl_setopt(f).curl_setheaders(h) 
   if (typeof c.T_URL == "string") w = w.curl_exec(); else
@@ -65,7 +91,8 @@ curl_to_php.tokenize = function(c) {
     if (!t) break
     o = o + t.length
     if (typeof s[t.token] == "undefined") s[t.token] = t.match
-    else s[t.token] = [s[t.token], t.match]
+    else if (typeof s[t.token] == "string") s[t.token] = [s[t.token], t.match]
+    else s[t.token].push(t.match)
   }
   return s
 }
@@ -81,21 +108,33 @@ curl_to_php.tokenize.match = function(c) {
 
 curl_to_php.tokenize.tokens = {
   T_BINARY: /^(curl)(\s+|$)/,
-  T_VERSION: /\s*(-V|--version)(\s+|$)/,
-  T_HELP: /(?:\s+|^)(-h|--help)(\s+|$)/,
+  T_VERSION: /^\s*(-V|--version)(\s+|$)/,
+  T_HELP: /^\s*(-h|--help)(\s+|$)/,
 
-  T_HTTP10: /(?:\s+|^)(-0|--http1.0)(\s+|$)/,
-  T_HTTP11: /(?:\s+|^)(--http1.1)(\s+|$)/,
-  T_HTTP2: /(?:\s+|^)(--http2)(\s+|$)/,
+  T_HTTP10: /^\s*(-0|--http1.0)(\s+|$)/,
+  T_HTTP11: /^\s*(--http1.1)(\s+|$)/,
+  T_HTTP2: /^\s*(--http2)(\s+|$)/,
 
-  T_INCLUDE: /\s*(-i|--include)(\s+|$)/,
-  T_HEAD: /(?:\s+|^)(-I|--head)(\s+|$)/,
-  T_HEADER: /(?:\s+|^)(?:-H|--header)\s+(['"].+['"]|[^\s]+)(\s+|$)/,
-  T_METHOD: /(?:\s+|^)(?:-X|--method)\s+(['"].+['"]|[^\s]+)(\s+|$)/,
-  T_USER_AGENT: /(?:\s+|^)(?:-A|--user-agent)\s+(['"].+['"]|[^\s]+)(\s+|$)/,
+  T_INCLUDE: /^\s*(-i|--include)(\s+|$)/,
+  T_HEAD: /^\s*(-I|--head)(\s+|$)/,
+  T_HEADER: /^\s*(?:-H|--header)\s+(['"][^"]+['"]|[^-\s]+)(\s+|$)/,
+  T_METHOD: /^\s*(?:-X|--method)\s+(['"][^"]+['"]|[^-\s]+)(\s+|$)/,
+  T_USER_AGENT: /^\s*(?:-A|--user-agent)\s+(['"][^"]+['"]|[^-\s]+)(\s+|$)/,
 
-  // URL must be the last one
-  T_URL: /^\s*(?!-)(["'-A-Za-z0-9+&@#/%?=~_|!:,.;]+)(\s+|$)/,
+  /* T_SILENT: /^\s*(-s|--silent)(\s+|$)/, */
+  /* T_SHOWERROR: /^\s*(-S|--show-error)(\s+|$)/, */
+  T_LOCATION: /^\s*(-L|--location)(\s+|$)/,
+  T_MAXREDIRS: /^\s*--max-redirs\s+([^-\s]+)(\s+|$)/,
+  T_MAXTIME: /^\s*(-m|--max-time)\s+([^-\s]+)(\s+|$)/,
+
+  T_GET: /^\s*(-G|--get)(\s+|$)/,
+  T_USER: /^\s*(?:-u|--user)\s+(['"][^":]+:[^":]+['"]|[^-\s]+:[^-\s]+)(\s+|$)/,
+  T_BASIC: /^\s*(--basic)(\s+|$)/,
+  T_DIGEST: /^\s*(--digest)(\s+|$)/,
+  /* T_NTLM: /^\s*(--ntlm)(\s+|$)/, */
+
+  // must be the last one
+  T_URL: /^\s*(?!-)([-"'A-Za-z0-9+&@#/%?=~_|!:,.;]+)(\s+|$)/,
 }
 
 curl_to_php.php_writter = function() {
@@ -140,14 +179,15 @@ curl_to_php.PHPWriter.prototype.curl_setopt = function(o) {
 }
 
 curl_to_php.PHPWriter.prototype.curl_setheaders = function(s) {
-  this.s += "curl_setopt($curl, CURLOPT_HTTPHEADER, " + this.seq(s) + ");\n"
+  if (s.length > 0)
+    this.s += "curl_setopt($curl, CURLOPT_HTTPHEADER, " + this.seq(s) + ");\n"
   return this
 }
 
 curl_to_php.PHPWriter.prototype.curl_exec = function(u) {
   if (typeof u == "string")
     this.s += "curl_setopt($curl, CURLOPT_URL, " + this.param(u) + ");\n"
-  this.s += "curl_exec($curl);\n"
+  this.s += "$ret = curl_exec($curl);\n"
          +  "if (curl_errno()) {\n"
          +  "   throw new \\RuntimeException(sprintf('cURL error %s: %s'"
          +  ", curl_errno(), curl_error()));\n"
@@ -158,7 +198,7 @@ curl_to_php.PHPWriter.prototype.curl_exec = function(u) {
 curl_to_php.PHPWriter.prototype.param = function(v) {
   if (typeof v == "boolean") return v ? 'true' : 'false'
   if (typeof v == "string") {
-    if (v == v.toUpperCase()) return v
+    if (v == v.toUpperCase() && v.substr(0, 4) == "CURL") return v
     return "'" + v + "'"
   }
   return v
@@ -185,27 +225,39 @@ curl_to_php.tokenize_test = function() {
   var e, a, p = curl_to_php.tokenize_test.data
   for (c in p) {
     if (!p.hasOwnProperty(c)) continue
-    console.log('Testing "' + c + '"')
     a = curl_to_php.tokenize(c)
-    if (cmp(p[c], a)) console.log('OK')
+    if (cmp(p[c], a)) console.info('OK "' + c + '"')
     else {
-      console.error({exp: p[c], act: a})
+      console.error({exp: p[c], act: a, sub: c})
       return false
     }
   }
   return true
   function cmp(a, b) {
-    var k
-    if (a.length != b.length) return false
-    for (k in a) if (a[k] !== b[k]) return false
+    var k, sa = 0, sb = 0
+    for (k in a) if (a.hasOwnProperty(k)) sa++
+    for (k in b) if (b.hasOwnProperty(k)) sb++
+    if (sa != sb) return false
+    for (k in a) if (a.hasOwnProperty(k) && b.hasOwnProperty(k))
+      if (a[k].toString() !== b[k].toString()) return false
     return true
   }
 }
 
 curl_to_php.tokenize_test.data = {
-  'carl': {},
+  'carl': {T_URL: 'carl'},
   'curl': {T_BINARY: 'curl'},
   'curl -V': {T_BINARY: 'curl', T_VERSION: '-V'},
   'curl --version': {T_BINARY: 'curl', T_VERSION: '--version'},
   'curl echoip.com': {T_BINARY: 'curl', T_URL: 'echoip.com'},
+  'curl --http1.0': {T_BINARY: 'curl', T_HTTP10: '--http1.0'},
+  'curl --http1.1': {T_BINARY: 'curl', T_HTTP11: '--http1.1'},
+  'curl --http2': {T_BINARY: 'curl', T_HTTP2: '--http2'},
+  'curl -L --max-redirs 1 goo.gl': {
+    T_BINARY: 'curl', T_URL: 'goo.gl',
+    T_LOCATION: '-L', T_MAXREDIRS: '1',
+  },
+  'curl google.com yahoo.com microsoft.com': {
+    T_BINARY: 'curl', T_URL: ['google.com', 'yahoo.com', 'microsoft.com'],
+  },
 }
