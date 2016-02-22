@@ -8,27 +8,52 @@ curl_to_php.transform = function(c, w) {
   if (typeof c.T_BINARY == "undefined") return w.toString()
   if (typeof c.T_VERSION != "undefined")
     return w.version(c.T_BINARY).toString()
-    if (typeof c.T_HELP != "undefined") {
-      w.comment('\n' +
-        'NAME\n' +
-        '       curl-to-php - transform curl command to PHP source code\n\n' +
-        'EXAMPLES\n' +
-        '       `curl --version`' +
-        '\n'
-      )
-      return w.toString()
-    }
+  if (typeof c.T_HELP != "undefined") {
+    w.comment('\n' +
+      'NAME\n' +
+      '       curl-to-php - transform curl command to PHP source code\n\n' +
+      'EXAMPLES\n' +
+      '       `curl echoip.com`\n' +
+      '       `curl -i \'https://musicbrainz.org/ws/2/artist/?query=area:Argentina\'`\n' +
+      '       `curl -A "Googlebot/2.1 (+http://www.google.com/bot.html)" https://google.com`\n' +
+      '       `curl -i -I -H "X-First-Name: Joe" http://192.168.0.1/`\n'
+    )
+    return w.toString()
+  }
   if (typeof c.T_URL == "undefined")
     return w
       .comment("curl-to-php: try 'curl --help' for more information")
       .toString()
+  var i, h = (typeof c.T_HEADER == "string" ? [c.T_HEADER] : c.T_HEADER).map(unquote)
   var f = {
-    CURLOPT_URL: c.T_URL,
     CURLOPT_RETURNTRANSFER: false,
     CURLOPT_HEADER: false,
     CURLOPT_CONNECTTIMEOUT: 150,
+    CURLOPT_HTTP_VERSION: 'CURL_HTTP_VERSION_1_1',
   }
-  return w.curl_init().curl_setopt(f).curl_exec().curl_close().toString()
+  if (typeof c.T_URL == "string")
+    f['CURLOPT_URL'] = unquote(c.T_URL)
+  if (typeof c.T_HTTP10 != "undefined")
+    f['CURLOPT_HTTP_VERSION'] = 'CURL_HTTP_VERSION_1_0'
+  if (typeof c.T_HTTP2 != "undefined")
+    f['CURLOPT_HTTP_VERSION'] = 'CURL_HTTP_VERSION_2_0'
+  if (typeof c.T_USER_AGENT != "undefined")
+    f['CURLOPT_USERAGENT'] = unquote(c.T_USER_AGENT)
+  if (typeof c.T_INCLUDE != "undefined")
+    f['CURLOPT_HEADER'] = true
+  if (typeof c.T_HEAD != "undefined") {
+    f['CURLOPT_NOBODY'] = true
+    delete f['CURLOPT_FILE']
+    delete f['CURLOPT_INFILE']
+  }
+  w = w.curl_init().curl_setopt(f).curl_setheaders(h) 
+  if (typeof c.T_URL == "string") w = w.curl_exec(); else
+    for (i = 0; i < c.T_URL.length; i++) w = w.curl_exec(c.T_URL[i])
+  w = w.curl_close()
+  return w.toString()
+  function unquote(s) {
+    return s.replace(/^['"]+|['"]+$/g, '')
+  }
 }
 
 curl_to_php.tokenize = function(c) {
@@ -39,7 +64,8 @@ curl_to_php.tokenize = function(c) {
     t = curl_to_php.tokenize.match(c.substring(o))
     if (!t) break
     o = o + t.length
-    s[t.token] = t.match
+    if (typeof s[t.token] == "undefined") s[t.token] = t.match
+    else s[t.token] = [s[t.token], t.match]
   }
   return s
 }
@@ -56,8 +82,20 @@ curl_to_php.tokenize.match = function(c) {
 curl_to_php.tokenize.tokens = {
   T_BINARY: /^(curl)(\s+|$)/,
   T_VERSION: /\s*(-V|--version)(\s+|$)/,
-  T_HELP: /\s*(-h|--help)(\s+|$)/,
-  T_URL: /^\s*(?!-)([-A-Za-z0-9+&@#/%?=~_|!:,.;]+)(\s+|$)/,
+  T_HELP: /(?:\s+|^)(-h|--help)(\s+|$)/,
+
+  T_HTTP10: /(?:\s+|^)(-0|--http1.0)(\s+|$)/,
+  T_HTTP11: /(?:\s+|^)(--http1.1)(\s+|$)/,
+  T_HTTP2: /(?:\s+|^)(--http2)(\s+|$)/,
+
+  T_INCLUDE: /\s*(-i|--include)(\s+|$)/,
+  T_HEAD: /(?:\s+|^)(-I|--head)(\s+|$)/,
+  T_HEADER: /(?:\s+|^)(?:-H|--header)\s+(['"].+['"]|[^\s]+)(\s+|$)/,
+  T_METHOD: /(?:\s+|^)(?:-X|--method)\s+(['"].+['"]|[^\s]+)(\s+|$)/,
+  T_USER_AGENT: /(?:\s+|^)(?:-A|--user-agent)\s+(['"].+['"]|[^\s]+)(\s+|$)/,
+
+  // URL must be the last one
+  T_URL: /^\s*(?!-)(["'-A-Za-z0-9+&@#/%?=~_|!:,.;]+)(\s+|$)/,
 }
 
 curl_to_php.php_writter = function() {
@@ -92,34 +130,55 @@ curl_to_php.PHPWriter.prototype.curl_init = function() {
 }
 
 curl_to_php.PHPWriter.prototype.curl_close = function() {
-  this.s += "if (curl_errno()) {\n"
-         +  "   throw new \\RuntimeException(sprintf('cURL error %s: %s'\n"
-         +  "      , curl_errno()\n"
-         +  "      , curl_error()\n"
-         +  "   ));\n"
-         +  "}\n"
-         +  "curl_close($curl);\n"
+  this.s += "curl_close($curl);\n"
   return this
 }
 
 curl_to_php.PHPWriter.prototype.curl_setopt = function(o) {
-  var k, a = []
-  for (k in o) {
-    if (!o.hasOwnProperty(k)) continue
-    a.push("   '" + k + "' => " + param(o[k]) + ",")
-  }
-  this.s += "curl_setopt_array($curl, array(\n" + a.join("\n") + "\n));\n"
+  this.s += "curl_setopt_array($curl, " + this.array(o) + ");\n"
   return this
-  function param(v) {
-    if (typeof v == "boolean") return v ? 'true' : 'false'
-    if (typeof v == "string") return "'" + v + "'"
-    return v
-  }
 }
 
-curl_to_php.PHPWriter.prototype.curl_exec = function() {
-  this.s += "curl_exec($curl);\n"
+curl_to_php.PHPWriter.prototype.curl_setheaders = function(s) {
+  this.s += "curl_setopt($curl, CURLOPT_HTTPHEADER, " + this.seq(s) + ");\n"
   return this
+}
+
+curl_to_php.PHPWriter.prototype.curl_exec = function(u) {
+  if (typeof u == "string")
+    this.s += "curl_setopt($curl, CURLOPT_URL, " + this.param(u) + ");\n"
+  this.s += "curl_exec($curl);\n"
+         +  "if (curl_errno()) {\n"
+         +  "   throw new \\RuntimeException(sprintf('cURL error %s: %s'"
+         +  ", curl_errno(), curl_error()));\n"
+         +  "}\n"
+  return this
+}
+
+curl_to_php.PHPWriter.prototype.param = function(v) {
+  if (typeof v == "boolean") return v ? 'true' : 'false'
+  if (typeof v == "string") {
+    if (v == v.toUpperCase()) return v
+    return "'" + v + "'"
+  }
+  return v
+}
+
+curl_to_php.PHPWriter.prototype.array = function(a) {
+  var k, l = []
+  for (k in a) {
+    if (!a.hasOwnProperty(k)) continue
+    l.push("   " + this.param(k) + " => " + this.param(a[k]) + ",")
+  }
+  return "array(\n" + l.join("\n") + "\n)"
+}
+
+curl_to_php.PHPWriter.prototype.seq = function(a) {
+  var i, l = []
+  for (i = 0; i < a.length; i++) {
+    l.push("   " + this.param(a[i]) + ",")
+  }
+  return "array(\n" + l.join("\n") + "\n)"
 }
 
 curl_to_php.tokenize_test = function() {
