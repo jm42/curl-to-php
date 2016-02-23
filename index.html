@@ -2,6 +2,8 @@
 <html>
  <head>
   <meta charset="UTF8">
+  <meta name="keywords" content="curl, php">
+  <meta name="description" content="transform curl command to PHP source code">
   <title>cURL to PHP</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.1.0/styles/default.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.1.0/highlight.min.js"></script>
@@ -32,17 +34,20 @@
   </script>
   <style>
   body { background-color: #EEE; }
-  textarea { width: 980px; height: 180px; padding: 5px; font-size: 150%; font-family: fixed; }
-  pre { width: 980px; background-color: #FFF; padding: 5px; border: 3px solid #CCC; }
+  main { width: 980px; }
+  textarea { width: 100%; height: 180px; padding: 5px; font-size: 150%; font-family: fixed; }
+  nav small { float: right; }
+  pre { background-color: #FFF; padding: 5px; border: 3px solid #CCC; }
   </style>
  </head>
-<body>
+ <body>
   <main>
-    <textarea id="input"></textarea>
-    <nav>
-      <label><input type="radio" name="writer" value="php" checked> Plain PHP</label>
-    </nav>
-    <pre><code class="php" id="output"></code></pre>
+   <textarea placeholder="place curl command here" id="input"></textarea>
+   <nav>
+    <label><input type="radio" name="writer" value="php" checked> Plain PHP</label>
+    <small><a href="https://github.com/jm42/curl-to-php">Fork on Github</a></small>
+   </nav>
+   <pre><code class="php" id="output"></code></pre>
   </main>
-</body>
+ </body>
 </html>

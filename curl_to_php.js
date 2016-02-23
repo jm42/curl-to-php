@@ -13,18 +13,18 @@ curl_to_php.transform = function(c, w) {
   if (typeof c.T_HELP != "undefined") {
     w.comment('\n' +
       'NAME\n' +
-      '       curl-to-php - transform curl command to PHP source code\n\n' +
+      '       *curl-to-php* - transform curl command to PHP source code\n\n' +
       'SUPPORTED OPTIONS\n' +
       '       Options can given in short or long arguments. The short\n' +
       '       "single-dash" form with no space between it and its value is\n' +
       '       not supported.\n\n' +
       '       -V|--version\n' +
-      '               Execute a system call to current installed cURL in\n' +
-      '               your computer and parse version number from it.\n\n' +
+      '              Execute a system call to current installed cURL in\n' +
+      '              your computer and parse version number from it.\n\n' +
       '       -h|--help\n' +
-      '               Usage help. This text.\n\n' +
+      '              Usage help. This text.\n\n' +
       '       --license\n' +
-      '               Source code ISC license.\n\n' +
+      '              Source code ISC license.\n\n' +
       'EXAMPLES\n' +
       '       `curl echoip.com`\n' +
       '       `curl -i \'https://musicbrainz.org/ws/2/artist/?query=area:Argentina\'`\n' +
@@ -32,7 +32,9 @@ curl_to_php.transform = function(c, w) {
       '       `curl -I -H "X-First-Name: Joe" http://192.168.0.1/`\n' +
       '       `curl -u "john:doe" --basic --digest ldap.intranet`\n' +
       '       `curl -L --max-redirs 3 https://goo.gl/MSOejW`\n' +
-      '       `curl -H "Referer: http://localhost" -H "Cookie: ae=d; p=-1" ddg.gg --data "q=javascript+union&t=ffab"`\n'
+      '       `curl -H "Referer: http://localhost" -H "Cookie: ae=d; p=-1" ddg.gg --data "q=javascript+union&t=ffab"`\n\n' +
+      'CHANGELOG\n' +
+      '       Version 0.7 -- First public version.\n\n'
     )
     return w.toString()
   }
