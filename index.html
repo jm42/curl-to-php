@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
  <head>
-  <meta charset="US-ASCII">
+  <meta charset="UTF8">
   <title>cURL to PHP</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.1.0/styles/default.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.1.0/highlight.min.js"></script>
@@ -19,6 +19,7 @@
         o = curl_to_php.transform(i)
         if (o) {
           o = hljs.highlight("php", o).value
+          o = o.replace(/\*([^*]+)+\*/g, '<b>\$1</b>')
           o = o.replace(/`([^`]+)`/g, function(s, p) {
             return '<a href="#' + encodeURI(p) + '">' + p + '</a>'
           })
@@ -31,7 +32,7 @@
   </script>
   <style>
   body { background-color: #EEE; }
-  textarea { width: 980px; height: 2.5em; padding: 5px; font-size: 150%; font-family: fixed; }
+  textarea { width: 980px; height: 180px; padding: 5px; font-size: 150%; font-family: fixed; }
   </style>
  </head>
 <body>

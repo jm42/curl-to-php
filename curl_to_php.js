@@ -3,8 +3,9 @@
 curl_to_php = {}
 
 curl_to_php.transform = function(c, w) {
-  c = curl_to_php.tokenize(c)
   if (!w) w = curl_to_php.php_writter()
+  try { c = curl_to_php.tokenize(c) }
+  catch (e) { return w.error(e.message).toString() }
   if (typeof c.T_BINARY == "undefined") return w.toString()
   if (typeof c.T_VERSION != "undefined")
     return w.version(c.T_BINARY).toString()
@@ -12,33 +13,69 @@ curl_to_php.transform = function(c, w) {
     w.comment('\n' +
       'NAME\n' +
       '       curl-to-php - transform curl command to PHP source code\n\n' +
+      'SUPPORTED OPTIONS\n' +
+      '       Options can given in short or long arguments. The short\n' +
+      '       "single-dash" form with no space between it and its value is\n' +
+      '       not supported.\n\n' +
+      '       -V|--version\n' +
+      '               Execute a system call to current installed cURL in\n' +
+      '               your computer and parse version number from it.\n\n' +
+      '       -h|--help\n' +
+      '               Usage help. This text.\n\n' +
+      '       --license\n' +
+      '               Source code ISC license.\n\n' +
       'EXAMPLES\n' +
       '       `curl echoip.com`\n' +
       '       `curl -i \'https://musicbrainz.org/ws/2/artist/?query=area:Argentina\'`\n' +
       '       `curl --http2 -A "Googlebot/2.1 (+http://www.google.com/bot.html)" https://google.com`\n' +
       '       `curl -I -H "X-First-Name: Joe" http://192.168.0.1/`\n' +
       '       `curl -u "john:doe" --basic --digest ldap.intranet`\n' +
-      '       `curl -L --max-redirs 3 https://goo.gl/MSOejW`\n'
+      '       `curl -L --max-redirs 3 https://goo.gl/MSOejW`\n' +
+      '       `curl -H "Referer: http://localhost" -H "Cookie: ae=d; p=-1" ddg.gg --data "q=javascript+union&t=ffab"`\n'
+    )
+    return w.toString()
+  }
+  if (typeof c.T_LICENSE != "undefined") {
+    w.comment('Copyright © 2016 Juan M Martínez\n\n' +
+        'Permission to use, copy, modify, and/or distribute this software for\n' +
+        'any purpose with or without fee is hereby granted, provided that the\n' +
+        'above copyright notice and this permission notice appear in all\n' +
+        'copies.\n\n' +
+        'THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH\n' +
+        'REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF\n' +
+        'MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY\n' +
+        'SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES\n' +
+        'WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN\n' +
+        'ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT\n' +
+        'OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.\n'
     )
     return w.toString()
   }
   if (typeof c.T_URL == "undefined")
-    return w
-      .comment("curl-to-php: try 'curl --help' for more information")
-      .toString()
+    return w.error("undefined url").toString()
   var i, h = typeof c.T_HEADER != "undefined"
     ? (typeof c.T_HEADER == "string" ? [c.T_HEADER] : c.T_HEADER).map(unquote)
-    : []
-  var f = {
-    CURLOPT_RETURNTRANSFER: true,
-    CURLOPT_HEADER: false,
-    CURLOPT_HTTP_VERSION: 'CURL_HTTP_VERSION_1_1',
+    : [], d = typeof c.T_DATA != "undefined"
+    ? (typeof c.T_DATA == "string" ? [c.T_DATA] : c.T_DATA).map(unquote) : []
+  var o = {
+    'user-agent': 'CURLOPT_USERAGENT',
+    'referer': 'CURLOPT_REFERER',
+    'cookie': 'CURLOPT_COOKIE',
   }
+  var m = 'GET', f = h2f(h, o), h = h.filter(function(l, x) {
+    var n
+    for (n in o) if (o.hasOwnProperty(n))
+      if (n == l.substr(0, n.length).toLowerCase())
+        return false
+    return true
+  })
+  f['CURLOPT_RETURNTRANSFER'] = true
+  f['CURLOPT_HEADER'] = false
+  f['CURLOPT_HTTP_VERSION'] = 'CURL_HTTP_VERSION_1_1'
   if (typeof c.T_METHOD != "undefined")
-    f['CURLOPT_CUSTOMREQUEST'] = unquote(typeof c.T_METHOD == "string"
+    f['CURLOPT_CUSTOMREQUEST'] = m = unquote(typeof c.T_METHOD == "string"
       ? c.T_METHOD : c.T_METHOD.pop()).toUpperCase()
-  if (typeof c.T_GET != "undefined")
-    c['CURLOPT_HTTPGET'] = true
+  if (typeof c.T_GET != "undefined") { m = 'GET'; c['CURLOPT_HTTPGET'] = true }
   if (typeof c.T_URL == "string")
     f['CURLOPT_URL'] = unquote(c.T_URL)
   if (typeof c.T_HTTP10 != "undefined")
@@ -78,11 +115,24 @@ curl_to_php.transform = function(c, w) {
   if (typeof c.T_COOKIEJAR != "undefined")
     f['CURLOPT_COOKIEJAR'] = unquote(typeof c.T_COOKIEJAR == "string"
       ? c.T_COOKIEJAR : c.T_COOKIEJAR.pop())
-  w = w.curl_init().curl_setopt(f).curl_setheaders(h) 
+  if (typeof c.T_DATA != "undefined")
+    f['CURLOPT_CUSTOMREQUEST'] = m = 'POST'
+  if (m == 'PUT' || m == 'POST')
+    f['CURLOPT_POSTFIELDS'] = d.join('&')
+  w = w.curl_init().curl_setopt(f).curl_setheaders(h)
   if (typeof c.T_URL == "string") w = w.curl_exec(); else
     for (i = 0; i < c.T_URL.length; i++) w = w.curl_exec(c.T_URL[i])
   w = w.curl_close()
   return w.toString()
+  function h2f(h, o) {
+    var i = 0, f = {}, n
+    for (; i < h.length; i++) for (n in o) {
+      if (!o.hasOwnProperty(n)) continue
+      if (n == h[i].substr(0, n.length).toLowerCase())
+        f[o[n]] = h[i].substr(n.length + 1).trim()
+    }
+    return f
+  }
   function unquote(s) {
     return s.replace(/^['"]+|['"]+$/g, '')
   }
@@ -94,7 +144,8 @@ curl_to_php.tokenize = function(c) {
   if (c[0] == '$' || c[0] == '#') c = c.substr(1).trim()
   while (o < c.length) {
     t = curl_to_php.tokenize.match(c.substring(o))
-    if (!t) break
+    if (!t) throw new Error(
+      "argument *" + c.substring(o).replace(/\s+.*$/g, "") + "* not reconized")
     o = o + t.length
     if (typeof s[t.token] == "undefined") s[t.token] = t.match
     else if (typeof s[t.token] == "string") s[t.token] = [s[t.token], t.match]
@@ -116,6 +167,7 @@ curl_to_php.tokenize.tokens = {
   T_BINARY: /^(curl)(\s+|$)/,
   T_VERSION: /^\s*(-V|--version)(\s+|$)/,
   T_HELP: /^\s*(-h|--help)(\s+|$)/,
+  T_LICENSE: /^\s*(--license)(\s+|$)/,
 
   T_HTTP10: /^\s*(-0|--http1.0)(\s+|$)/,
   T_HTTP11: /^\s*(--http1.1)(\s+|$)/,
@@ -123,9 +175,9 @@ curl_to_php.tokenize.tokens = {
 
   T_INCLUDE: /^\s*(-i|--include)(\s+|$)/,
   T_HEAD: /^\s*(-I|--head)(\s+|$)/,
-  T_HEADER: /^\s*(?:-H|--header)\s+(['"][^"]+['"]|[^-\s]+)(\s+|$)/,
-  T_METHOD: /^\s*(?:-X|--method)\s+(['"][^"]+['"]|[^-\s]+)(\s+|$)/,
-  T_USER_AGENT: /^\s*(?:-A|--user-agent)\s+(['"][^"]+['"]|[^-\s]+)(\s+|$)/,
+  T_HEADER: /^\s*(?:-H|--header)\s+(['"][^"']+['"]|[^-\s]+)(\s+|$)/,
+  T_METHOD: /^\s*(?:-X|--method)\s+(['"][^"']+['"]|[^-\s]+)(\s+|$)/,
+  T_USER_AGENT: /^\s*(?:-A|--user-agent)\s+(['"][^"']+['"]|[^-\s]+)(\s+|$)/,
 
   /* T_SILENT: /^\s*(-s|--silent)(\s+|$)/, */
   /* T_SHOWERROR: /^\s*(-S|--show-error)(\s+|$)/, */
@@ -139,8 +191,10 @@ curl_to_php.tokenize.tokens = {
   T_DIGEST: /^\s*(--digest)(\s+|$)/,
   /* T_NTLM: /^\s*(--ntlm)(\s+|$)/, */
 
-  T_COOKIE: /^\s*(?:-b|--cookie)\s+(['"][^"=]+=[^"]+['"]|[^-\s]+:[^-\s]+)(\s+|$)/,
+  T_COOKIE: /^\s*(?:-b|--cookie)\s+(['"][^"=]+=[^"]+['"]|[^-\s]+=[^-\s]+)(\s+|$)/,
   T_COOKIEJAR: /^\s*(?:-c|--cookie-jar)\s+(['"][^"]+['"]|[^-\s]+)(\s+|$)/,
+
+  T_DATA: /^\s*(?:-d|--data)\s+(['"][^"=]+=[^"]+['"]|[^-\s]+=[^-\s]+)(\s+|$)/,
 
   // must be the last one
   T_URL: /^\s*(?!-)([-"'A-Za-z0-9+&@#/%?=~_|!:,.;]+)(\s+|$)/,
@@ -163,6 +217,11 @@ curl_to_php.PHPWriter.prototype.comment = function(c) {
   for (; i < l.length; i++) this.s += "// " + l[i] + "\n"
   this.s += "\n"
   return this
+}
+
+curl_to_php.PHPWriter.prototype.error = function(e) {
+  return this.comment("parse failed: " + e)
+             .comment("curl-to-php: try `curl --help` for more information")
 }
 
 curl_to_php.PHPWriter.prototype.version = function(b) {
