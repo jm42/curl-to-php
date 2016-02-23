@@ -72,6 +72,12 @@ curl_to_php.transform = function(c, w) {
       f['CURLOPT_HTTPAUTH'] = typeof f['CURLOPT_HTTPAUTH'] == "undefined"
         ? "CURLAUTH_DIGEST" : f['CURLOPT_HTTPAUTH'] + " | CURLAUTH_DIGEST"
   }
+  if (typeof c.T_COOKIE != "undefined")
+    f['CURLOPT_COOKIE'] = unquote(typeof c.T_COOKIE == "string"
+      ? c.T_COOKIE : c.T_COOKIE.pop())
+  if (typeof c.T_COOKIEJAR != "undefined")
+    f['CURLOPT_COOKIEJAR'] = unquote(typeof c.T_COOKIEJAR == "string"
+      ? c.T_COOKIEJAR : c.T_COOKIEJAR.pop())
   w = w.curl_init().curl_setopt(f).curl_setheaders(h) 
   if (typeof c.T_URL == "string") w = w.curl_exec(); else
     for (i = 0; i < c.T_URL.length; i++) w = w.curl_exec(c.T_URL[i])
@@ -133,6 +139,9 @@ curl_to_php.tokenize.tokens = {
   T_DIGEST: /^\s*(--digest)(\s+|$)/,
   /* T_NTLM: /^\s*(--ntlm)(\s+|$)/, */
 
+  T_COOKIE: /^\s*(?:-b|--cookie)\s+(['"][^"=]+=[^"]+['"]|[^-\s]+:[^-\s]+)(\s+|$)/,
+  T_COOKIEJAR: /^\s*(?:-c|--cookie-jar)\s+(['"][^"]+['"]|[^-\s]+)(\s+|$)/,
+
   // must be the last one
   T_URL: /^\s*(?!-)([-"'A-Za-z0-9+&@#/%?=~_|!:,.;]+)(\s+|$)/,
 }
@@ -187,10 +196,10 @@ curl_to_php.PHPWriter.prototype.curl_setheaders = function(s) {
 curl_to_php.PHPWriter.prototype.curl_exec = function(u) {
   if (typeof u == "string")
     this.s += "curl_setopt($curl, CURLOPT_URL, " + this.param(u) + ");\n"
-  this.s += "$ret = curl_exec($curl);\n"
-         +  "if (curl_errno()) {\n"
+  this.s += "$response = curl_exec($curl);\n"
+         +  "if (curl_errno($curl)) {\n"
          +  "   throw new \\RuntimeException(sprintf('cURL error %s: %s'"
-         +  ", curl_errno(), curl_error()));\n"
+         +  ", curl_errno($curl), curl_error($curl)));\n"
          +  "}\n"
   return this
 }
