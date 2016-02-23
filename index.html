@@ -13,10 +13,10 @@
       $('#input').val(decodeURI(location.hash.substr(1))).trigger('keyup')
     })
     $('#input').keyup(function() {
-      var i, o, t = $(this)
+      var i, o, t = $(this), w = $('input[name="writer"]:checked').val()
       location.hash = i = t.val()
       if (i) {
-        o = curl_to_php.transform(i)
+        o = curl_to_php.transform(i, w)
         if (o) {
           o = hljs.highlight("php", o).value
           o = o.replace(/\*([^*]+)+\*/g, '<b>\$1</b>')
@@ -33,11 +33,15 @@
   <style>
   body { background-color: #EEE; }
   textarea { width: 980px; height: 180px; padding: 5px; font-size: 150%; font-family: fixed; }
+  pre { width: 980px; background-color: #FFF; padding: 5px; border: 3px solid #CCC; }
   </style>
  </head>
 <body>
   <main>
     <textarea id="input"></textarea>
+    <nav>
+      <label><input type="radio" name="writer" value="php" checked> Plain PHP</label>
+    </nav>
     <pre><code class="php" id="output"></code></pre>
   </main>
 </body>

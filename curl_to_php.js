@@ -3,7 +3,8 @@
 curl_to_php = {}
 
 curl_to_php.transform = function(c, w) {
-  if (!w) w = curl_to_php.php_writter()
+  if (typeof w == "string") w = curl_to_php.container[w + '_writter']()
+  if (!w) w = curl_to_php.container['php_writter']()
   try { c = curl_to_php.tokenize(c) }
   catch (e) { return w.error(e.message).toString() }
   if (typeof c.T_BINARY == "undefined") return w.toString()
@@ -200,7 +201,9 @@ curl_to_php.tokenize.tokens = {
   T_URL: /^\s*(?!-)([-"'A-Za-z0-9+&@#/%?=~_|!:,.;]+)(\s+|$)/,
 }
 
-curl_to_php.php_writter = function() {
+curl_to_php.container = {}
+
+curl_to_php.container['php_writter'] = function() {
   return new curl_to_php.PHPWriter()
 }
 
