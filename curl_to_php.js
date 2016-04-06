@@ -185,6 +185,7 @@ curl_to_php.tokenize.tokens = {
   T_METHOD: /^\s*(?:-X|--method)\s+(['"][^"']+['"]|[^-\s]+)(\s+|$)/,
   T_USER_AGENT: /^\s*(?:-A|--user-agent)\s+(['"][^"']+['"]|[^-\s]+)(\s+|$)/,
 
+  T_VERBOSE: /^\s*(-v|--verbose)(\s+|$)/,
   /* T_SILENT: /^\s*(-s|--silent)(\s+|$)/, */
   /* T_SHOWERROR: /^\s*(-S|--show-error)(\s+|$)/, */
   T_LOCATION: /^\s*(-L|--location)(\s+|$)/,
