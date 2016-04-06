@@ -87,6 +87,8 @@ curl_to_php.transform = function(c, w) {
     f['CURLOPT_HTTP_VERSION'] = "CURL_HTTP_VERSION_2_0"
   if (typeof c.T_USER_AGENT != "undefined")
     f['CURLOPT_USERAGENT'] = unquote(c.T_USER_AGENT)
+  if (typeof c.T_INSECURE != "undefined")
+    f['CURLOPT_SSL_VERIFYPEER'] = false
   if (typeof c.T_INCLUDE != "undefined")
     f['CURLOPT_HEADER'] = true
   if (typeof c.T_HEAD != "undefined") {
@@ -176,6 +178,7 @@ curl_to_php.tokenize.tokens = {
   T_HTTP11: /^\s*(--http1.1)(\s+|$)/,
   T_HTTP2: /^\s*(--http2)(\s+|$)/,
 
+  T_INSECURE: /^\s*(-k|--insecure)(\s+|$)/,
   T_INCLUDE: /^\s*(-i|--include)(\s+|$)/,
   T_HEAD: /^\s*(-I|--head)(\s+|$)/,
   T_HEADER: /^\s*(?:-H|--header)\s+(['"][^"']+['"]|[^-\s]+)(\s+|$)/,
