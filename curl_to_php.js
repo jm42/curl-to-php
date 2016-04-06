@@ -32,9 +32,11 @@ curl_to_php.transform = function(c, w) {
       '       `curl -I -H "X-First-Name: Joe" http://192.168.0.1/`\n' +
       '       `curl -u "john:doe" --basic --digest ldap.intranet`\n' +
       '       `curl -L --max-redirs 3 https://goo.gl/MSOejW`\n' +
-      '       `curl -H "Referer: http://localhost" -H "Cookie: ae=d; p=-1" ddg.gg --data "q=javascript+union&t=ffab"`\n\n' +
+      '       `curl -H "Referer: http://localhost" -H "Cookie: ae=d; p=-1" ddg.gg --data "q=javascript+union&t=ffab"`\n' +
+      '       `curl -v -k -X PURGE https://www.example.com/assets/image.jpg`\n\n' +
       'CHANGELOG\n' +
-      '       Version 0.7 -- First public version.\n\n'
+      '       Version 0.7 -- First public version.\n' +
+      '       Version 0.8 -- Implement -k/--insecure and ignore -v/--verbose\n'
     )
     return w.toString()
   }
