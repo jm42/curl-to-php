@@ -204,6 +204,7 @@ curl_to_php.tokenize.tokens = {
   T_COOKIEJAR: /^\s*(?:-c|--cookie-jar)\s+(['"][^"]+['"]|[^-\s]+)(\s+|$)/,
 
   T_DATA: /^\s*(?:-d|--data)\s+(['"][^"=]+=[^"]+['"]|[^-\s]+=[^-\s]+)(\s+|$)/,
+  T_DATABINARY: /^\s*(--data-binary)\s+(['"][^"=]+=[^"]+['"]|[^-\s]+=[^-\s]+)(\s+|$)/,
 
   // must be the last one
   T_URL: /^\s*(?!-)([-"'A-Za-z0-9+&@#/%?=~_|!:,.;]+)(\s+|$)/,
